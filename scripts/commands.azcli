@@ -1,0 +1,77 @@
+# VARIABLES
+# Get the resource group name from the input of the user and export it as an environment variable
+echo "Enter the name of the resource group:"
+read RESOURCE_GROUP_NAME
+export RESOURCE_GROUP_NAME
+
+# Get the location of the resource group from the input of the user and export it as an environment variable
+echo "Enter the location of the resource group:"
+read RESOURCE_GROUP_LOCATION
+export RESOURCE_GROUP_LOCATION
+
+SOURCE_PATH="./src" # Path to your local static site files
+DEPLOYMENT_NAME="$(openssl rand -hex 3)-deployment"
+
+##################################################
+
+# SCRIPT
+# Check if resource group exists
+echo "Checking if resource group $RESOURCE_GROUP_NAME exists..."
+az group show --name $RESOURCE_GROUP_NAME &> /dev/null
+
+# If the resource group exists, deploy the resources within it
+if [ $? == 0 ]; then
+    echo "Resource group $RESOURCE_GROUP_NAME already exists. Deploying resources..."
+    DEPLOYMENT=$(az deployment group create --name $DEPLOYMENT_NAME \
+        --resource-group $RESOURCE_GROUP_NAME \
+        --template-file ./infra/storage.bicep \
+        --mode Complete)
+    
+    # Set variable for deployment outputs
+    DEPLOYMENT_OUTPUT=$(echo $DEPLOYMENT | jq -r '.properties.outputs')
+else
+    # If the resource group doesn't exist, create it and the resources within it
+    echo "Resource group $RESOURCE_GROUP_NAME doesn't exist. Creating resource group and deploying resources..."
+    DEPLOYMENT=$(az deployment sub create --name $DEPLOYMENT_NAME \
+        --location $RESOURCE_GROUP_LOCATION \
+        --template-file ./infra/rg.bicep \
+        --parameters resourceGroupName=$RESOURCE_GROUP_NAME resourceGroupLocation=$RESOURCE_GROUP_LOCATION)
+    
+    # Set variable for deployment outputs
+    DEPLOYMENT_OUTPUT=$(echo $DEPLOYMENT | jq -r '.properties.outputs')
+fi
+
+# Retrieve the storage account key using the deployment outputs
+echo "Retrieving the storage account key..."
+STORAGE_ACCOUNT_NAME=$(echo $DEPLOYMENT_OUTPUT | jq -r '.storageAccountName.value')
+STORAGE_ACCOUNT_KEY=$(az storage account keys list \
+    --resource-group $RESOURCE_GROUP_NAME \
+    --account-name $STORAGE_ACCOUNT_NAME \
+    --query '[0].value' --output tsv)
+
+# Upload files to the $web container
+echo "Uploading files to the $web container..."
+az storage blob upload-batch --account-name $STORAGE_ACCOUNT_NAME \
+    --account-key $STORAGE_ACCOUNT_KEY \
+    --destination '$web' \
+    --source $SOURCE_PATH
+
+# Get the static site URL from the storage account
+echo "Retrieving the static site URL..."
+STATIC_SITE_URL=$(az storage account show \
+    --name $STORAGE_ACCOUNT_NAME \
+    --resource-group $RESOURCE_GROUP_NAME \
+    --query 'primaryEndpoints.web' --output tsv)
+
+# Output the static site URL
+echo "Static site URL: $STATIC_SITE_URL"
+
+# Get the static website configurations for the storage account
+echo "Retrieving the static website configurations..."
+az storage blob service properties update --account-name $STORAGE_ACCOUNT_NAME \
+    --account-key $STORAGE_ACCOUNT_KEY \
+    --static-website \
+    --index-document index.html \
+    --error-document error.html
+
+echo "Deployment complete. Your static site is live at: https://${STORAGE_ACCOUNT_NAME}.z20.web.core.windows.net"
