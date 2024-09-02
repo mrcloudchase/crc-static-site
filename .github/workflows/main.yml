@@ -13,6 +13,9 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
 
+    env:
+      RESOURCE_GROUP_NAME: test-rg  # Define the resource group as a variable
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -24,19 +27,15 @@ jobs:
         tenant-id: ${{ secrets.AZURE_TENANT_ID }}
         subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-    - name: Create Resource Group
-      run: |
-        az group create --name crc-static-site-rg --location eastus
-
     - name: Deploy Bicep Template
       run: |
         az deployment group create \
-          --resource-group crc-static-site-rg \
+          --resource-group $RESOURCE_GROUP_NAME \
           --template-file infra/storage.bicep
 
     - name: Upload files to $web container using Azure AD
       run: |
-        STORAGE_ACCOUNT_NAME=$(az deployment group show --name crc-static-site-rg --resource-group crc-static-site-rg --query properties.outputs.storageAccountName.value -o tsv)
+        STORAGE_ACCOUNT_NAME=$(az deployment group show --resource-group $RESOURCE_GROUP_NAME --name crc-static-site-rg --query properties.outputs.storageAccountName.value -o tsv)
         az storage blob upload-batch \
           --account-name $STORAGE_ACCOUNT_NAME \
           --container-name '$web' \
@@ -44,7 +43,7 @@ jobs:
 
     - name: Enable Static Website
       run: |
-        STORAGE_ACCOUNT_NAME=$(az deployment group show --name crc-static-site-rg --resource-group crc-static-site-rg --query properties.outputs.storageAccountName.value -o tsv)
+        STORAGE_ACCOUNT_NAME=$(az deployment group show --resource-group $RESOURCE_GROUP_NAME --name crc-static-site-rg --query properties.outputs.storageAccountName.value -o tsv)
         az storage blob service-properties update \
           --account-name $STORAGE_ACCOUNT_NAME \
           --static-website \
@@ -53,6 +52,6 @@ jobs:
 
     - name: Output Static Website URL
       run: |
-        STORAGE_ACCOUNT_NAME=$(az deployment group show --name crc-static-site-rg --resource-group crc-static-site-rg --query properties.outputs.storageAccountName.value -o tsv)
-        STATIC_SITE_URL=$(az storage account show --name $STORAGE_ACCOUNT_NAME --resource-group crc-static-site-rg --query 'primaryEndpoints.web' --output tsv)
+        STORAGE_ACCOUNT_NAME=$(az deployment group show --resource-group $RESOURCE_GROUP_NAME --name crc-static-site-rg --query properties.outputs.storageAccountName.value -o tsv)
+        STATIC_SITE_URL=$(az storage account show --name $STORAGE_ACCOUNT_NAME --resource-group $RESOURCE_GROUP_NAME --query 'primaryEndpoints.web' --output tsv)
         echo "Static site URL: $STATIC_SITE_URL"
