@@ -51,7 +51,8 @@ jobs:
           --account-name $STORAGE_ACCOUNT_NAME \
           --static-website \
           --index-document index.html \
-          --404-document error.html
+          --404-document error.html \
+          --auth-mode login
 
     - name: Output Static Website URL
       run: |
