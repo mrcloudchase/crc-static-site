@@ -31,7 +31,7 @@ jobs:
       run: |
         az deployment group create \
           --resource-group $RESOURCE_GROUP_NAME \
-          --name crc-static-site-deployment \  # Explicitly setting the deployment name
+          --name crc-static-site-deployment \
           --template-file infra/storage.bicep
 
     - name: Upload files to $web container using Azure AD
