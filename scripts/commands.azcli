@@ -9,7 +9,10 @@ echo "Enter the location of the resource group:"
 read RESOURCE_GROUP_LOCATION
 export RESOURCE_GROUP_LOCATION
 
-SOURCE_PATH="./src" # Path to your local static site files
+# Path to your local static site files
+SOURCE_PATH="./src"
+
+# Generate a random deployment name
 DEPLOYMENT_NAME="$(openssl rand -hex 3)-deployment"
 
 ##################################################
@@ -29,6 +32,7 @@ if [ $? == 0 ]; then
     
     # Set variable for deployment outputs
     DEPLOYMENT_OUTPUT=$(echo $DEPLOYMENT | jq -r '.properties.outputs')
+    echo $DEPLOYMENT_OUTPUT
 else
     # If the resource group doesn't exist, create it and the resources within it
     echo "Resource group $RESOURCE_GROUP_NAME doesn't exist. Creating resource group and deploying resources..."
@@ -39,11 +43,13 @@ else
     
     # Set variable for deployment outputs
     DEPLOYMENT_OUTPUT=$(echo $DEPLOYMENT | jq -r '.properties.outputs')
+    echo $DEPLOYMENT_OUTPUT
 fi
 
 # Retrieve the storage account key using the deployment outputs
 echo "Retrieving the storage account key..."
 STORAGE_ACCOUNT_NAME=$(echo $DEPLOYMENT_OUTPUT | jq -r '.storageAccountName.value')
+echo "Storage account name: $STORAGE_ACCOUNT_NAME"
 STORAGE_ACCOUNT_KEY=$(az storage account keys list \
     --resource-group $RESOURCE_GROUP_NAME \
     --account-name $STORAGE_ACCOUNT_NAME \
@@ -56,22 +62,20 @@ az storage blob upload-batch --account-name $STORAGE_ACCOUNT_NAME \
     --destination '$web' \
     --source $SOURCE_PATH
 
+# Enabling static website configurations for the storage account
+echo "Enabling the static website configurations..."
+az storage blob service-properties update --account-name $STORAGE_ACCOUNT_NAME \
+    --account-key $STORAGE_ACCOUNT_KEY \
+    --static-website \
+    --index-document index.html \
+    --404-document error.html
+
 # Get the static site URL from the storage account
 echo "Retrieving the static site URL..."
 STATIC_SITE_URL=$(az storage account show \
     --name $STORAGE_ACCOUNT_NAME \
     --resource-group $RESOURCE_GROUP_NAME \
     --query 'primaryEndpoints.web' --output tsv)
-
-# Output the static site URL
 echo "Static site URL: $STATIC_SITE_URL"
 
-# Get the static website configurations for the storage account
-echo "Retrieving the static website configurations..."
-az storage blob service properties update --account-name $STORAGE_ACCOUNT_NAME \
-    --account-key $STORAGE_ACCOUNT_KEY \
-    --static-website \
-    --index-document index.html \
-    --error-document error.html
-
-echo "Deployment complete. Your static site is live at: https://${STORAGE_ACCOUNT_NAME}.z20.web.core.windows.net"
+##################################################
