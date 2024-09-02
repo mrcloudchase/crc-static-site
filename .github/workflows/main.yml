@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      RESOURCE_GROUP_NAME: test-rg  # Define the resource group as a variable
+      RESOURCE_GROUP_NAME: test-rg
 
     steps:
     - name: Checkout code
@@ -40,7 +40,9 @@ jobs:
         az storage blob upload-batch \
           --account-name $STORAGE_ACCOUNT_NAME \
           --destination '$web' \
-          --source src
+          --source src \
+          --overwrite \
+          --auth-mode login
 
     - name: Enable Static Website
       run: |
