@@ -31,11 +31,12 @@ jobs:
       run: |
         az deployment group create \
           --resource-group $RESOURCE_GROUP_NAME \
+          --name crc-static-site-deployment \  # Explicitly setting the deployment name
           --template-file infra/storage.bicep
 
     - name: Upload files to $web container using Azure AD
       run: |
-        STORAGE_ACCOUNT_NAME=$(az deployment group show --resource-group $RESOURCE_GROUP_NAME --name crc-static-site-rg --query properties.outputs.storageAccountName.value -o tsv)
+        STORAGE_ACCOUNT_NAME=$(az deployment group show --resource-group $RESOURCE_GROUP_NAME --name crc-static-site-deployment --query properties.outputs.storageAccountName.value -o tsv)
         az storage blob upload-batch \
           --account-name $STORAGE_ACCOUNT_NAME \
           --container-name '$web' \
@@ -43,7 +44,7 @@ jobs:
 
     - name: Enable Static Website
       run: |
-        STORAGE_ACCOUNT_NAME=$(az deployment group show --resource-group $RESOURCE_GROUP_NAME --name crc-static-site-rg --query properties.outputs.storageAccountName.value -o tsv)
+        STORAGE_ACCOUNT_NAME=$(az deployment group show --resource-group $RESOURCE_GROUP_NAME --name crc-static-site-deployment --query properties.outputs.storageAccountName.value -o tsv)
         az storage blob service-properties update \
           --account-name $STORAGE_ACCOUNT_NAME \
           --static-website \
@@ -52,6 +53,6 @@ jobs:
 
     - name: Output Static Website URL
       run: |
-        STORAGE_ACCOUNT_NAME=$(az deployment group show --resource-group $RESOURCE_GROUP_NAME --name crc-static-site-rg --query properties.outputs.storageAccountName.value -o tsv)
+        STORAGE_ACCOUNT_NAME=$(az deployment group show --resource-group $RESOURCE_GROUP_NAME --name crc-static-site-deployment --query properties.outputs.storageAccountName.value -o tsv)
         STATIC_SITE_URL=$(az storage account show --name $STORAGE_ACCOUNT_NAME --resource-group $RESOURCE_GROUP_NAME --query 'primaryEndpoints.web' --output tsv)
         echo "Static site URL: $STATIC_SITE_URL"
