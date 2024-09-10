@@ -7,3 +7,12 @@ document.querySelectorAll('a[href^="#"]').forEach(anchor => {
         });
     });
 });
+
+document.addEventListener("DOMContentLoaded", function() {
+    fetch('https://<your-function-app-name>.azurewebsites.net/api/PageViewCounter')
+    .then(response => response.text())
+    .then(data => {
+        document.getElementById('page-view-counter').textContent = `Page views: ${data}`;
+    })
+    .catch(error => console.error('Error fetching page views:', error));
+});

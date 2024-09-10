@@ -20,6 +20,15 @@ module storageAcct 'storage.bicep' = {
   // }
 }
 
+module functionApp 'function_app.bicep' = {
+  name: 'functionAppModule'
+  scope: newRG
+  // params: {
+  //   resourceGroupName: resourceGroupName
+  //   location: resourceGroupLocation
+  //   storageAccountName: storageAcct.outputs.storageAccountName
+  // }
+}
 output resourceGroupName string = newRG.name
 output resourceGroupLocation string = newRG.location
 output storageAccountName string = storageAcct.outputs.storageAccountName
